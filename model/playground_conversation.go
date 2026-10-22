@@ -122,3 +122,60 @@ func DeletePlaygroundConversation(userID int, id int64) error {
 	}
 	return nil
 }
+
+// ListAllPlaygroundConversations returns conversations across users for the
+// administrator console. The caller is responsible for authorization.
+func ListAllPlaygroundConversations(pageInfo *common.PageInfo, userID int, keyword string) ([]PlaygroundConversation, int64, error) {
+	query := DB.Model(&PlaygroundConversation{})
+	if userID > 0 {
+		query = query.Where("user_id = ?", userID)
+	}
+	if keyword = strings.TrimSpace(keyword); keyword != "" {
+		like := "%" + keyword + "%"
+		query = query.Where("title LIKE ? OR model LIKE ? OR "+commonGroupCol+" LIKE ?", like, like, like)
+	}
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var conversations []PlaygroundConversation
+	err := query.Order("updated_at DESC, id DESC").Offset(pageInfo.GetStartIdx()).Limit(pageInfo.GetPageSize()).Find(&conversations).Error
+	return conversations, total, err
+}
+
+func GetPlaygroundConversationByID(id int64) (*PlaygroundConversation, error) {
+	conversation := &PlaygroundConversation{}
+	err := DB.First(conversation, id).Error
+	return conversation, err
+}
+
+func UpdatePlaygroundConversationByID(id int64, title, modelName, group, messages string) (*PlaygroundConversation, error) {
+	conversation, err := GetPlaygroundConversationByID(id)
+	if err != nil {
+		return nil, err
+	}
+	normalizedMessages, err := normalizePlaygroundMessages(messages)
+	if err != nil {
+		return nil, err
+	}
+	conversation.Title = normalizePlaygroundTitle(title)
+	conversation.Model = strings.TrimSpace(modelName)
+	conversation.Group = strings.TrimSpace(group)
+	conversation.Messages = normalizedMessages
+	conversation.UpdatedAt = time.Now().Unix()
+	if err := DB.Save(conversation).Error; err != nil {
+		return nil, err
+	}
+	return conversation, nil
+}
+
+func DeletePlaygroundConversationByID(id int64) error {
+	result := DB.Delete(&PlaygroundConversation{}, id)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}

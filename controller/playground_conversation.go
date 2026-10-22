@@ -103,3 +103,59 @@ func DeletePlaygroundConversation(c *gin.Context) {
 	}
 	common.ApiSuccess(c, gin.H{"id": id})
 }
+
+func ListAllPlaygroundConversations(c *gin.Context) {
+	pageInfo := common.GetPageQuery(c)
+	userID, _ := strconv.Atoi(c.Query("user_id"))
+	conversations, total, err := model.ListAllPlaygroundConversations(pageInfo, userID, c.Query("keyword"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	pageInfo.SetTotal(int(total))
+	pageInfo.SetItems(conversations)
+	common.ApiSuccess(c, pageInfo)
+}
+
+func GetAnyPlaygroundConversation(c *gin.Context) {
+	id, ok := playgroundConversationID(c)
+	if !ok {
+		return
+	}
+	conversation, err := model.GetPlaygroundConversationByID(id)
+	if err != nil {
+		writePlaygroundConversationError(c, err)
+		return
+	}
+	common.ApiSuccess(c, conversation)
+}
+
+func UpdateAnyPlaygroundConversation(c *gin.Context) {
+	id, ok := playgroundConversationID(c)
+	if !ok {
+		return
+	}
+	var request playgroundConversationRequest
+	if err := common.DecodeJson(c.Request.Body, &request); err != nil || strings.TrimSpace(request.Messages) == "" {
+		common.ApiErrorStatus(c, http.StatusBadRequest, errors.New("invalid conversation parameters"))
+		return
+	}
+	conversation, err := model.UpdatePlaygroundConversationByID(id, request.Title, request.Model, request.Group, request.Messages)
+	if err != nil {
+		writePlaygroundConversationError(c, err)
+		return
+	}
+	common.ApiSuccess(c, conversation)
+}
+
+func DeleteAnyPlaygroundConversation(c *gin.Context) {
+	id, ok := playgroundConversationID(c)
+	if !ok {
+		return
+	}
+	if err := model.DeletePlaygroundConversationByID(id); err != nil {
+		writePlaygroundConversationError(c, err)
+		return
+	}
+	common.ApiSuccess(c, gin.H{"id": id})
+}

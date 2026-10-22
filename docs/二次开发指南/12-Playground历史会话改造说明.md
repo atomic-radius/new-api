@@ -218,6 +218,25 @@ PUT /api/playground/conversations/:id
 
 ## 7. 后续建议
 
+## 8. 超级管理员会话管理
+
+为满足运营和审计需求，新增管理员专用的“会话”侧边菜单与管理页面。该菜单使用 `/admin-conversations` 路由，管理员（`ROLE.ADMIN`）和超级管理员均可显示和访问。
+
+后端新增管理接口：
+
+```text
+GET    /api/admin/playground/conversations
+GET    /api/admin/playground/conversations/:id
+PUT    /api/admin/playground/conversations/:id
+DELETE /api/admin/playground/conversations/:id
+```
+
+这些接口统一挂载 `AdminAuth()`，服务端按会话 ID 查询，不依赖前端权限判断。列表支持 `p`、`page_size`、`user_id` 和 `keyword` 参数，可按用户 ID 筛选，也可搜索标题、模型和分组。管理员可以查看完整消息 JSON、修改会话标题和消息内容、删除会话；所有修改仍经过消息数组格式校验和 2 MiB 限制。
+
+前端页面位于 `web/src/features/admin-conversations/`，左侧展示所有用户会话，右侧展示选中会话的消息 JSON，并提供保存、删除操作。侧边栏配置增加 `admin.conversations` 模块，系统设置中的侧边栏管理也可以单独启用或关闭该菜单。
+
+安全边界：浏览器中隐藏菜单不构成安全控制，真正的权限边界由 `AdminAuth()` 和后端路由实现。管理员页面只展示会话所属用户 ID，后续如需展示用户名，建议增加只读用户摘要 DTO，避免把用户密码、令牌等敏感字段带入响应。
+
 当前实现把完整消息数组作为一个 JSON 文本保存，适合中小规模 Playground。若后续需要大量会话、消息分页、全文搜索、单条消息删除、消息版本和附件管理，应进一步拆分为：
 
 ```text

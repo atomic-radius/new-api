@@ -154,6 +154,10 @@ export function SidebarModulesSection({
         title: t('Users'),
         description: t('Administer user accounts and roles.'),
       },
+      conversations: {
+        title: t('Conversations'),
+        description: t('Review and manage conversations from all users.'),
+      },
       setting: {
         title: t('System settings'),
         description: t('Advanced platform configuration.'),

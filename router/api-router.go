@@ -36,6 +36,13 @@ func SetApiRouter(router *gin.Engine) {
 			playgroundConversationRoute.PUT("/:id", controller.UpdatePlaygroundConversation)
 			playgroundConversationRoute.DELETE("/:id", controller.DeletePlaygroundConversation)
 		}
+		adminPlaygroundConversationRoute := apiRouter.Group("/admin/playground/conversations", middleware.AdminAuth(), middleware.DisableCache())
+		{
+			adminPlaygroundConversationRoute.GET("", controller.ListAllPlaygroundConversations)
+			adminPlaygroundConversationRoute.GET("/:id", controller.GetAnyPlaygroundConversation)
+			adminPlaygroundConversationRoute.PUT("/:id", controller.UpdateAnyPlaygroundConversation)
+			adminPlaygroundConversationRoute.DELETE("/:id", controller.DeleteAnyPlaygroundConversation)
+		}
 		apiRouter.GET("/status/test", middleware.AdminAuth(), controller.TestStatus)
 		apiRouter.GET("/notice", controller.GetNotice)
 		apiRouter.GET("/user-agreement", controller.GetUserAgreement)
