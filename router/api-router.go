@@ -28,6 +28,14 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/status", controller.GetStatus)
 		apiRouter.GET("/uptime/status", controller.GetUptimeKumaStatus)
 		apiRouter.GET("/models", middleware.UserAuth(), controller.DashboardListModels)
+		playgroundConversationRoute := apiRouter.Group("/playground/conversations", middleware.UserAuth(), middleware.DisableCache())
+		{
+			playgroundConversationRoute.GET("", controller.ListPlaygroundConversations)
+			playgroundConversationRoute.POST("", controller.CreatePlaygroundConversation)
+			playgroundConversationRoute.GET("/:id", controller.GetPlaygroundConversation)
+			playgroundConversationRoute.PUT("/:id", controller.UpdatePlaygroundConversation)
+			playgroundConversationRoute.DELETE("/:id", controller.DeletePlaygroundConversation)
+		}
 		apiRouter.GET("/status/test", middleware.AdminAuth(), controller.TestStatus)
 		apiRouter.GET("/notice", controller.GetNotice)
 		apiRouter.GET("/user-agreement", controller.GetUserAgreement)

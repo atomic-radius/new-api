@@ -20,21 +20,28 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { DEFAULT_CONFIG, DEFAULT_PARAMETER_ENABLED } from '../constants'
 import {
-  saveConfig,
-  saveParameterEnabled,
-  saveMessages,
   applyMessageStateUpdate,
   getInitialParameterEnabled,
   getInitialPlaygroundConfig,
   loadMessages,
+  saveConfig,
+  saveParameterEnabled,
   type MessageStateUpdater,
 } from '../lib'
+import {
+  createPlaygroundConversation,
+  deletePlaygroundConversation,
+  getPlaygroundConversation,
+  listPlaygroundConversations,
+  updatePlaygroundConversation,
+} from '../api'
 import type {
   Message,
   PlaygroundConfig,
   ParameterEnabled,
   ModelOption,
   GroupOption,
+  PlaygroundConversation,
 } from '../types'
 
 const MESSAGE_SAVE_DEBOUNCE_MS = 500
@@ -54,9 +61,13 @@ export function usePlaygroundState() {
 
   const [messages, setMessages] = useState<Message[]>([])
   const [isLoadingMessages, setIsLoadingMessages] = useState(true)
+  const [conversations, setConversations] = useState<PlaygroundConversation[]>([])
+  const [activeConversationId, setActiveConversationId] = useState<number | null>(null)
+  const [isLoadingConversations, setIsLoadingConversations] = useState(true)
   const messagesSaveTimerRef = useRef<number | null>(null)
   const latestMessagesRef = useRef<Message[]>(messages)
   const hasLoadedMessagesRef = useRef(false)
+  const activeConversationRef = useRef<number | null>(null)
 
   const [models, setModels] = useState<ModelOption[]>([])
   const [groups, setGroups] = useState<GroupOption[]>([])
@@ -64,7 +75,8 @@ export function usePlaygroundState() {
   const persistMessages = useCallback((messagesToSave: Message[]) => {
     latestMessagesRef.current = messagesToSave
 
-    if (!hasLoadedMessagesRef.current) {
+    const conversationId = activeConversationRef.current
+    if (!hasLoadedMessagesRef.current || conversationId === null) {
       return
     }
 
@@ -74,24 +86,67 @@ export function usePlaygroundState() {
 
     messagesSaveTimerRef.current = window.setTimeout(() => {
       messagesSaveTimerRef.current = null
-      saveMessages(latestMessagesRef.current)
+      const title = getConversationTitle(latestMessagesRef.current)
+      setConversations((previous) =>
+        previous.map((conversation) =>
+          conversation.id === conversationId
+            ? {
+                ...conversation,
+                title,
+                model: configRef.current.model,
+                group: configRef.current.group,
+                updated_at: Math.floor(Date.now() / 1000),
+              }
+            : conversation
+        )
+      )
+      void updatePlaygroundConversation(conversationId, {
+        title,
+        model: configRef.current.model,
+        group: configRef.current.group,
+        messages: latestMessagesRef.current,
+      })
     }, MESSAGE_SAVE_DEBOUNCE_MS)
   }, [])
+
+  const configRef = useRef(config)
+  useEffect(() => {
+    configRef.current = config
+  }, [config])
 
   useEffect(() => {
     let cancelled = false
 
-    window.setTimeout(() => {
-      const loadedMessages = loadMessages() ?? []
-      if (cancelled) {
-        return
+    void (async () => {
+      try {
+        let loadedConversations = await listPlaygroundConversations()
+        if (loadedConversations.length === 0) {
+          const legacyMessages = loadMessages() ?? []
+          const created = await createPlaygroundConversation({
+            model: configRef.current.model,
+            group: configRef.current.group,
+            messages: legacyMessages,
+          })
+          loadedConversations = [created]
+        }
+        if (cancelled) return
+        setConversations(loadedConversations)
+        const first = loadedConversations[0]
+        const detail = await getPlaygroundConversation(first.id)
+        if (cancelled) return
+        const loadedMessages = parseConversationMessages(detail.messages)
+        activeConversationRef.current = detail.id
+        setActiveConversationId(detail.id)
+        latestMessagesRef.current = loadedMessages
+        hasLoadedMessagesRef.current = true
+        setMessages(loadedMessages)
+      } finally {
+        if (!cancelled) {
+          setIsLoadingConversations(false)
+          setIsLoadingMessages(false)
+        }
       }
-
-      latestMessagesRef.current = loadedMessages
-      hasLoadedMessagesRef.current = true
-      setMessages(loadedMessages)
-      setIsLoadingMessages(false)
-    }, 0)
+    })()
 
     return () => {
       cancelled = true
@@ -102,7 +157,6 @@ export function usePlaygroundState() {
     () => () => {
       if (messagesSaveTimerRef.current !== null) {
         window.clearTimeout(messagesSaveTimerRef.current)
-        saveMessages(latestMessagesRef.current)
       }
     },
     []
@@ -157,6 +211,56 @@ export function usePlaygroundState() {
     saveParameterEnabled(DEFAULT_PARAMETER_ENABLED)
   }, [])
 
+  const selectConversation = useCallback(async (conversationId: number) => {
+    if (conversationId === activeConversationRef.current) return
+    if (messagesSaveTimerRef.current !== null) {
+      window.clearTimeout(messagesSaveTimerRef.current)
+      messagesSaveTimerRef.current = null
+    }
+    setIsLoadingMessages(true)
+    const detail = await getPlaygroundConversation(conversationId)
+    const loadedMessages = parseConversationMessages(detail.messages)
+    activeConversationRef.current = detail.id
+    setActiveConversationId(detail.id)
+    latestMessagesRef.current = loadedMessages
+    setMessages(loadedMessages)
+    setIsLoadingMessages(false)
+  }, [])
+
+  const createConversation = useCallback(async () => {
+    const conversation = await createPlaygroundConversation({
+      model: configRef.current.model,
+      group: configRef.current.group,
+    })
+    setConversations((previous) => [conversation, ...previous])
+    activeConversationRef.current = conversation.id
+    setActiveConversationId(conversation.id)
+    latestMessagesRef.current = []
+    setMessages([])
+    hasLoadedMessagesRef.current = true
+  }, [])
+
+  const deleteConversation = useCallback(async (conversationId: number) => {
+    await deletePlaygroundConversation(conversationId)
+    const remaining = conversations.filter((item) => item.id !== conversationId)
+    if (remaining.length === 0) {
+      const replacement = await createPlaygroundConversation({
+        model: configRef.current.model,
+        group: configRef.current.group,
+      })
+      setConversations([replacement])
+      activeConversationRef.current = replacement.id
+      setActiveConversationId(replacement.id)
+      latestMessagesRef.current = []
+      setMessages([])
+      return
+    }
+    setConversations(remaining)
+    if (activeConversationRef.current === conversationId) {
+      await selectConversation(remaining[0].id)
+    }
+  }, [conversations, selectConversation])
+
   return {
     // State
     config,
@@ -176,5 +280,26 @@ export function usePlaygroundState() {
     updateMessages,
     clearMessages,
     resetConfig,
+    conversations,
+    activeConversationId,
+    isLoadingConversations,
+    selectConversation,
+    createConversation,
+    deleteConversation,
   }
+}
+
+function parseConversationMessages(value: string): Message[] {
+  try {
+    const parsed: unknown = JSON.parse(value)
+    return Array.isArray(parsed) ? (parsed as Message[]) : []
+  } catch {
+    return []
+  }
+}
+
+function getConversationTitle(messages: Message[]): string {
+  const firstUserMessage = messages.find((message) => message.from === 'user')
+  const content = firstUserMessage?.versions.at(-1)?.content.trim()
+  return content ? content.slice(0, 80) : 'New conversation'
 }

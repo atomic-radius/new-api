@@ -151,3 +151,14 @@ export interface GroupOption {
   ratio: number | string
   desc?: string
 }
+
+export interface PlaygroundConversation {
+  id: number
+  user_id: number
+  title: string
+  model: string
+  group: string
+  messages: string
+  created_at: number
+  updated_at: number
+}

@@ -25,6 +25,8 @@ import type {
   ChatCompletionResponse,
   ModelOption,
   GroupOption,
+  Message,
+  PlaygroundConversation,
 } from './types'
 
 /**
@@ -85,4 +87,62 @@ export async function getUserGroups(): Promise<GroupOption[]> {
     ratio: info.ratio,
     desc: info.desc,
   }))
+}
+
+const CONVERSATIONS_ENDPOINT = '/api/playground/conversations'
+
+function conversationMessages(messages: Message[]): string {
+  return JSON.stringify(messages)
+}
+
+export async function listPlaygroundConversations(): Promise<PlaygroundConversation[]> {
+  const res = await api.get(CONVERSATIONS_ENDPOINT)
+  const response = requireServerSuccess(res.data) as {
+    data?: PlaygroundConversation[]
+  }
+  return Array.isArray(response.data) ? response.data : []
+}
+
+export async function createPlaygroundConversation(input?: {
+  title?: string
+  model?: string
+  group?: string
+  messages?: Message[]
+}): Promise<PlaygroundConversation> {
+  const res = await api.post(CONVERSATIONS_ENDPOINT, {
+    title: input?.title ?? '',
+    model: input?.model ?? '',
+    group: input?.group ?? '',
+    messages: conversationMessages(input?.messages ?? []),
+  })
+  const response = requireServerSuccess(res.data) as {
+    data: PlaygroundConversation
+  }
+  return response.data
+}
+
+export async function getPlaygroundConversation(
+  id: number
+): Promise<PlaygroundConversation> {
+  const res = await api.get(`${CONVERSATIONS_ENDPOINT}/${id}`)
+  const response = requireServerSuccess(res.data) as {
+    data: PlaygroundConversation
+  }
+  return response.data
+}
+
+export async function updatePlaygroundConversation(
+  id: number,
+  input: { title: string; model: string; group: string; messages: Message[] }
+): Promise<PlaygroundConversation> {
+  const res = await api.put(`${CONVERSATIONS_ENDPOINT}/${id}`, {
+    ...input,
+    messages: conversationMessages(input.messages),
+  })
+  return requireServerSuccess(res.data) as PlaygroundConversation
+}
+
+export async function deletePlaygroundConversation(id: number): Promise<void> {
+  const res = await api.delete(`${CONVERSATIONS_ENDPOINT}/${id}`)
+  requireServerSuccess(res.data)
 }
