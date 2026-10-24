@@ -52,13 +52,13 @@ export function PlaygroundEmptyState({
 
         <div className='grid gap-2'>
           <h2 className='text-xl font-semibold tracking-tight text-balance md:text-2xl'>
-            {t('Start a playground chat')}
+            {t('Work with purpose. Live in peace!')}
           </h2>
-          <p className='text-muted-foreground mx-auto max-w-lg text-sm leading-6 text-balance'>
-            {t(
-              'Test a model with a starter prompt, or write your own request below.'
-            )}
-          </p>
+          {/*<p className='text-muted-foreground mx-auto max-w-lg text-sm leading-6 text-balance'>*/}
+          {/*  {t(*/}
+          {/*    'Test a model with a starter prompt, or write your own request below.'*/}
+          {/*  )}*/}
+          {/*</p>*/}
         </div>
 
         <div className='grid gap-2 sm:grid-cols-2'>

@@ -18,6 +18,15 @@
 
 ## 文档中的证据边界
 
+## CI/CD 与 Kubernetes 流水线
+
+- [开发环境流水线部署](14-开发环境流水线部署.md)：本地 Bun、Docker Compose、PostgreSQL、Redis 和 Go 热更新。
+- [测试环境流水线部署](15-测试环境流水线部署.md)：固定 SHA 镜像、独立 Namespace、迁移验证、接口测试和回滚。
+- [生产 Kubernetes 流水线部署](16-生产Kubernetes流水线部署.md)：MySQL/PostgreSQL、Redis、Ingress、HPA、PDB、备份、滚动发布和按 digest 回滚。
+- [私有化部署总览与架构](17-私有化部署总览与架构.md)：代码、制品、集群、数据库、Redis、密钥、日志和备份的私有化边界。
+- [私有化流水线方式对比](18-私有化流水线方式对比.md)：GitLab、Jenkins、Harbor、Argo CD、Tekton 和手工 Helm 的安全性、简洁性与效率比较。
+- [私有化高效发布实施手册](19-私有化高效发布实施手册.md)：从提交、构建、扫描到 Kubernetes 发布、审批、备份、监控和回滚的完整示例。
+
 “源码事实”来自当前文件和配置；“验证结果”只在实际执行命令后填写。架构说明不等同于生产可用性证明，数据库改动必须按项目要求分别验证 SQLite、MySQL 和 PostgreSQL。
 
 ## 关键入口速查
